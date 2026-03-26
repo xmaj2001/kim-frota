@@ -1,185 +1,147 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   ScrollView,
-  Dimensions,
   TouchableOpacity,
+  RefreshControl,
   Alert,
 } from "react-native";
-import { REPORT_STATS, formatCurrency } from "@/constants/mockData";
-import {
-  BarChart3,
-  PieChart,
-  TrendingUp,
-  DollarSign,
-  Download,
-  Share2,
-} from "lucide-react-native";
-
-const { width } = Dimensions.get("window");
+import { dataService } from "@/services/dataService";
+import { Payment, formatCurrency } from "@/types";
+import { PieChart, BarChart2, TrendingUp, Download } from "lucide-react-native";
 
 export default function ReportsScreen() {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total: 0,
+    paid: 0,
+    pending: 0,
+    overdue: 0,
+  });
+
+  const fetchData = async () => {
+    setLoading(true);
+    const all = await dataService.getPayments();
+
+    const paid = all
+      .filter((p) => p.status === "pago")
+      .reduce((s, p) => s + p.amount, 0);
+    const pending = all
+      .filter((p) => p.status === "pendente")
+      .reduce((s, p) => s + p.amount, 0);
+    const overdue = all
+      .filter((p) => p.status === "atrasado")
+      .reduce((s, p) => s + p.amount, 0);
+
+    setStats({ total: paid + pending + overdue, paid, pending, overdue });
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   const handleGenerateReport = () => {
     Alert.alert(
-      "Gerar Relatório",
-      "Deseja gerar o relatório semanal detalhado em PDF?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Gerar PDF",
-          onPress: () =>
-            Alert.alert(
-              "Sucesso",
-              "Relatório gerado e salvo na pasta de documentos.",
-            ),
-        },
-      ],
+      "Sucesso",
+      "Relatório financeiro gerado e pronto para download.",
     );
   };
 
   return (
-    <ScrollView className="flex-1 bg-slate-50 p-4">
-      <View className="mb-6 flex-row justify-between items-center">
-        <Text className="text-slate-400 text-sm">
-          Análise de desempenho financeiro
-        </Text>
+    <View className="flex-1 bg-slate-50">
+      <ScrollView
+        className="p-4"
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={fetchData} />
+        }
+      >
+        <View className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm mb-6">
+          <Text className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">
+            Balanço Total
+          </Text>
+          <Text className="text-slate-900 text-4xl font-black mb-4">
+            {formatCurrency(stats.total)}
+          </Text>
+
+          <View className="flex-row justify-between pt-4 border-t border-slate-50">
+            <View>
+              <Text className="text-emerald-500 text-xs font-bold">Pago</Text>
+              <Text className="text-slate-900 font-bold">
+                {formatCurrency(stats.paid)}
+              </Text>
+            </View>
+            <View>
+              <Text className="text-amber-500 text-xs font-bold">Pendente</Text>
+              <Text className="text-slate-900 font-bold">
+                {formatCurrency(stats.pending)}
+              </Text>
+            </View>
+            <View>
+              <Text className="text-red-500 text-xs font-bold">Atrasado</Text>
+              <Text className="text-slate-900 font-bold">
+                {formatCurrency(stats.overdue)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
         <TouchableOpacity
           onPress={handleGenerateReport}
-          className="bg-white p-2.5 rounded-2xl border border-slate-100 shadow-sm shadow-slate-100"
+          className="bg-blue-500 p-4 rounded-2xl flex-row items-center justify-center shadow-lg shadow-blue-500/30 mb-8"
         >
-          <Download color="#3b82f6" size={20} />
+          <Download color="white" size={20} className="mr-2" />
+          <Text className="text-white font-bold text-lg">
+            Gerar Relatório Completo
+          </Text>
         </TouchableOpacity>
-      </View>
 
-      {/* Summary Card */}
-      <View className="bg-blue-600 p-6 rounded-[32px] mb-6 shadow-xl shadow-blue-600/30">
-        <View className="flex-row justify-between items-center mb-6">
-          <View className="bg-white/20 p-2 rounded-xl">
-            <TrendingUp color="white" size={20} />
-          </View>
-          <Text className="text-white/60 text-xs font-black uppercase tracking-widest">
-            Semana Atual
+        <View className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <Text className="text-slate-900 font-bold text-lg mb-6 flex-row items-center">
+            <PieChart color="#3b82f6" size={20} className="mr-2" /> Distribuição
+            de Receita
           </Text>
-        </View>
-        <Text className="text-white text-4xl font-black mb-1">
-          {formatCurrency(REPORT_STATS.totalReceived)}
-        </Text>
-        <Text className="text-white/60 text-xs font-medium">
-          Acumulado Recebido até hoje
-        </Text>
 
-        <View className="mt-8 pt-6 border-t border-white/10 flex-row justify-between">
-          <View>
-            <Text className="text-white/40 text-[10px] uppercase font-black mb-1">
-              Pendente
-            </Text>
-            <Text className="text-white font-bold">
-              {formatCurrency(REPORT_STATS.pendingAmount)}
-            </Text>
-          </View>
-          <View className="items-end">
-            <Text className="text-white/40 text-[10px] uppercase font-black mb-1">
-              Atrasado
-            </Text>
-            <Text className="text-white font-bold text-red-300">
-              {formatCurrency(REPORT_STATS.overdueAmount)}
-            </Text>
+          <View className="space-y-4">
+            <ProgressBar
+              label="Pago"
+              amount={stats.paid}
+              total={stats.total}
+              color="bg-emerald-500"
+            />
+            <ProgressBar
+              label="Pendente"
+              amount={stats.pending}
+              total={stats.total}
+              color="bg-amber-500"
+            />
+            <ProgressBar
+              label="Atrasado"
+              amount={stats.overdue}
+              total={stats.total}
+              color="bg-red-500"
+            />
           </View>
         </View>
-      </View>
-
-      {/* Reports Actions */}
-      <TouchableOpacity
-        onPress={handleGenerateReport}
-        className="bg-white p-5 rounded-[24px] mb-6 flex-row items-center justify-between border border-slate-100 shadow-sm"
-      >
-        <View className="flex-row items-center">
-          <View className="bg-blue-50 p-3 rounded-2xl mr-4">
-            <BarChart3 color="#3b82f6" size={24} />
-          </View>
-          <View>
-            <Text className="text-slate-900 font-bold text-lg">
-              Gerar Relatório
-            </Text>
-            <Text className="text-slate-400 text-xs">
-              Exportar dados em PDF ou Excel
-            </Text>
-          </View>
-        </View>
-        <View className="bg-slate-50 p-2 rounded-full">
-          <Share2 color="#94a3b8" size={20} />
-        </View>
-      </TouchableOpacity>
-
-      {/* Visual Charts Placeholders */}
-      <View className="bg-white p-6 rounded-[32px] border border-slate-100 mb-6 shadow-sm">
-        <View className="flex-row items-center mb-8">
-          <DollarSign color="#3b82f6" size={20} className="mr-2" />
-          <Text className="text-slate-900 font-black text-lg">
-            Meta de Arrecadação
-          </Text>
-        </View>
-
-        <View className="space-y-6">
-          <BarItem
-            label="Geral"
-            value={REPORT_STATS.totalReceived}
-            total={
-              REPORT_STATS.totalReceived +
-              REPORT_STATS.pendingAmount +
-              REPORT_STATS.overdueAmount
-            }
-            color="bg-blue-500"
-          />
-          <BarItem
-            label="Carros"
-            value={REPORT_STATS.totalReceived * 0.7}
-            total={500000}
-            color="bg-indigo-400"
-          />
-          <BarItem
-            label="Motas"
-            value={REPORT_STATS.totalReceived * 0.3}
-            total={200000}
-            color="bg-emerald-400"
-          />
-        </View>
-      </View>
-
-      <View className="h-20" />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
-function BarItem({
-  label,
-  value,
-  total,
-  color,
-}: {
-  label: string;
-  value: number;
-  total: number;
-  color: string;
-}) {
-  const percentage = Math.round((value / total) * 100);
+function ProgressBar({ label, amount, total, color }: any) {
+  const percentage = total > 0 ? (amount / total) * 100 : 0;
   return (
-    <View className="mb-6">
-      <View className="flex-row justify-between mb-2 items-end">
-        <View>
-          <Text className="text-slate-900 font-bold text-sm mb-0.5">
-            {label}
-          </Text>
-          <Text className="text-slate-400 text-[10px] uppercase font-black">
-            {formatCurrency(value)} / {formatCurrency(total)}
-          </Text>
-        </View>
-        <Text className="text-slate-900 text-sm font-black">{percentage}%</Text>
+    <View>
+      <View className="flex-row justify-between mb-1.5 px-1">
+        <Text className="text-slate-500 text-xs font-bold">{label}</Text>
+        <Text className="text-slate-900 text-xs font-bold">
+          {Math.round(percentage)}%
+        </Text>
       </View>
-      <View className="h-3 bg-slate-50 rounded-full w-full overflow-hidden border border-slate-100">
+      <View className="h-3 bg-slate-100 rounded-full overflow-hidden">
         <View
-          className={`h-full ${color} rounded-full`}
+          className={`h-full ${color}`}
           style={{ width: `${percentage}%` }}
         />
       </View>

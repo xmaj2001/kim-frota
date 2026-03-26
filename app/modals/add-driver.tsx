@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
+  Alert,
   FlatList,
   Modal,
 } from "react-native";
@@ -14,20 +15,57 @@ import {
   X,
   Calendar,
   Car,
-  Bike,
-  ChevronRight,
+  ChevronDown,
   Check,
 } from "lucide-react-native";
-import { MOCK_VEHICLES } from "@/constants/mockData";
+import { dataService } from "@/services/dataService";
+import { Vehicle } from "@/types";
 
 export default function RegisterDriver() {
   const router = useRouter();
-  const [showVehiclePicker, setShowVehiclePicker] = React.useState(false);
-  const [selectedVehicle, setSelectedVehicle] = React.useState<any>(null);
-
-  const availableVehicles = MOCK_VEHICLES.filter(
-    (v) => v.status === "disponivel",
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [weeklyAmount, setWeeklyAmount] = useState("");
+  const [startDate, setStartDate] = useState(
+    new Date().toISOString().split("T")[0],
   );
+
+  const [availableVehicles, setAvailableVehicles] = useState<Vehicle[]>([]);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      const all = await dataService.getVehicles();
+      setAvailableVehicles(all.filter((v) => v.status === "disponivel"));
+    };
+    fetchVehicles();
+  }, []);
+
+  const handleRegister = async () => {
+    if (!name || !phone || !weeklyAmount || !selectedVehicle) {
+      return Alert.alert(
+        "Erro",
+        "Preencha todos os campos e selecione um veículo.",
+      );
+    }
+
+    await dataService.addDriver({
+      name,
+      phone,
+      startDate,
+      weeklyAmount: parseFloat(weeklyAmount),
+      assignedVehicleId: selectedVehicle.id,
+    });
+
+    // Update vehicle status
+    await dataService.updateVehicle?.(selectedVehicle.id, {
+      status: "atribuido",
+    });
+
+    Alert.alert("Sucesso", "Motorista registado e pagamentos iniciados!");
+    router.back();
+  };
 
   return (
     <View className="flex-1 bg-white">
@@ -47,49 +85,52 @@ export default function RegisterDriver() {
           <View className="bg-slate-100 w-24 h-24 rounded-full items-center justify-center border-4 border-slate-50">
             <User color="#CBD5E1" size={48} />
           </View>
-          <Text className="text-blue-500 font-bold mt-2">Adicionar Foto</Text>
         </View>
 
-        <Input label="Nome Completo" placeholder="Ex: João Manuel" />
         <Input
-          label="Número de Telefone"
+          label="Nome Completo"
+          placeholder="Ex: João Manuel"
+          value={name}
+          onChangeText={setName}
+        />
+        <Input
+          label="Telefone"
           placeholder="Ex: 923 000 000"
           keyboardType="phone-pad"
+          value={phone}
+          onChangeText={setPhone}
         />
         <Input
           label="Valor Semanal (Kz)"
-          placeholder="50.000"
+          placeholder="Ex: 50000"
           keyboardType="numeric"
+          value={weeklyAmount}
+          onChangeText={setWeeklyAmount}
         />
-        <Input label="Data de Início" placeholder="DD/MM/AAAA" />
 
         <Text className="text-slate-500 text-sm font-medium mb-1.5 ml-1 mt-4">
-          Veículo Atribuído
+          Veículo da Frota
         </Text>
         <TouchableOpacity
-          onPress={() => setShowVehiclePicker(true)}
+          onPress={() => setShowPicker(true)}
           className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex-row justify-between items-center mb-8"
         >
-          <View className="flex-row items-center">
-            {selectedVehicle ? (
-              <>
-                {selectedVehicle.type === "carro" ? (
-                  <Car color="#3b82f6" size={20} className="mr-2" />
-                ) : (
-                  <Bike color="#6366f1" size={20} className="mr-2" />
-                )}
-                <Text className="text-slate-900 font-bold">
-                  {selectedVehicle.plate}
-                </Text>
-              </>
-            ) : (
-              <Text className="text-slate-400">Selecionar da frota...</Text>
-            )}
-          </View>
-          <ChevronRight color="#94a3b8" size={20} />
+          <Text
+            className={
+              selectedVehicle ? "text-slate-900 font-bold" : "text-slate-400"
+            }
+          >
+            {selectedVehicle
+              ? `${selectedVehicle.plate} - ${selectedVehicle.model}`
+              : "Selecionar da frota..."}
+          </Text>
+          <ChevronDown color="#94a3b8" size={20} />
         </TouchableOpacity>
 
-        <TouchableOpacity className="bg-blue-500 p-4 rounded-2xl shadow-lg shadow-blue-500/30 mb-10">
+        <TouchableOpacity
+          onPress={handleRegister}
+          className="bg-blue-500 p-4 rounded-2xl shadow-lg shadow-blue-500/30"
+        >
           <Text className="text-white text-center font-bold text-lg">
             Registar Motorista
           </Text>
@@ -97,23 +138,15 @@ export default function RegisterDriver() {
       </ScrollView>
 
       {/* Vehicle Picker Modal */}
-      <Modal
-        visible={showVehiclePicker}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowVehiclePicker(false)}
-      >
-        <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-white rounded-t-[32px] p-6 h-[70%]">
+      <Modal visible={showPicker} animationType="slide" transparent={true}>
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="bg-white rounded-t-3xl p-6 h-3/4">
             <View className="flex-row justify-between items-center mb-6">
-              <Text className="text-xl font-black text-slate-900">
-                Selecionar Veículo
+              <Text className="text-lg font-bold">
+                Selecionar Veículo Disponível
               </Text>
-              <TouchableOpacity
-                onPress={() => setShowVehiclePicker(false)}
-                className="bg-slate-100 p-2 rounded-full"
-              >
-                <X color="#64748b" size={20} />
+              <TouchableOpacity onPress={() => setShowPicker(false)}>
+                <X color="#64748b" size={24} />
               </TouchableOpacity>
             </View>
 
@@ -124,37 +157,27 @@ export default function RegisterDriver() {
                 <TouchableOpacity
                   onPress={() => {
                     setSelectedVehicle(item);
-                    setShowVehiclePicker(false);
+                    setShowPicker(false);
                   }}
-                  className={`p-4 rounded-2xl mb-3 flex-row items-center justify-between border ${selectedVehicle?.id === item.id ? "border-blue-500 bg-blue-50" : "border-slate-100"}`}
+                  className="flex-row items-center p-4 mb-2 bg-slate-50 rounded-2xl"
                 >
-                  <View className="flex-row items-center">
-                    <View className="bg-white p-2 rounded-xl mr-3 shadow-sm">
-                      {item.type === "carro" ? (
-                        <Car color="#3b82f6" size={20} />
-                      ) : (
-                        <Bike color="#6366f1" size={20} />
-                      )}
-                    </View>
-                    <View>
-                      <Text className="text-slate-900 font-bold">
-                        {item.plate}
-                      </Text>
-                      <Text className="text-slate-400 text-xs">
-                        {item.model}
-                      </Text>
-                    </View>
+                  <View className="bg-white p-2 rounded-lg mr-4">
+                    <Car color="#3b82f6" size={20} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-bold">{item.plate}</Text>
+                    <Text className="text-slate-500 text-xs">{item.model}</Text>
                   </View>
                   {selectedVehicle?.id === item.id && (
-                    <Check color="#3b82f6" size={20} />
+                    <Check color="#10b981" size={20} />
                   )}
                 </TouchableOpacity>
               )}
               ListEmptyComponent={() => (
-                <View className="py-10 items-center">
-                  <Car color="#CBD5E1" size={48} />
+                <View className="items-center py-20">
+                  <Car color="#cbd5e1" size={48} />
                   <Text className="text-slate-400 mt-2">
-                    Nenhum veículo disponível.
+                    Nenhum veículo disponível
                   </Text>
                 </View>
               )}
@@ -173,7 +196,7 @@ function Input({ label, ...props }: any) {
         {label}
       </Text>
       <TextInput
-        className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-slate-900 font-semibold"
+        className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-slate-900"
         placeholderTextColor="#94a3b8"
         {...props}
       />

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "58246272263",
+    "project_id": "kimfrota",
+    "storage_bucket": "kimfrota.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:58246272263:android:11c4dbc8ec056f4c13a1a2",
+        "android_client_info": {
+          "package_name": "com.xmaj.kimfrota"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtbPFZVjc8ecv6N5qy4C6ZR6htgX5d4qw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -11,7 +11,13 @@ import { useEffect } from "react";
 
 import "@/assets/global.css";
 import { useColorScheme } from "@/components/useColorScheme";
-// import "react-native-reanimated";
+import { initDatabase } from "@/services/sqlite";
+import { syncService } from "@/services/syncService";
+import NetInfo from "@react-native-community/netinfo";
+
+// Initialize DB immediately
+initDatabase();
+
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
@@ -39,6 +45,18 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+
+      // Initial sync
+      syncService.syncData();
+
+      // Listen for connection changes
+      const unsubscribe = NetInfo.addEventListener((state) => {
+        if (state.isConnected) {
+          syncService.syncData();
+        }
+      });
+
+      return () => unsubscribe();
     }
   }, [loaded]);
 

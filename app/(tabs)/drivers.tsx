@@ -1,12 +1,15 @@
-import React from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
-import { Link, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
-  MOCK_DRIVERS,
-  MOCK_VEHICLES,
-  formatCurrency,
-} from "@/constants/mockData";
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+  RefreshControl,
+} from "react-native";
+import { Link, useRouter } from "expo-router";
 import { dataService } from "@/services/dataService";
+import { Driver, Vehicle, formatCurrency } from "@/types";
 import {
   Users,
   Phone,
@@ -15,13 +18,30 @@ import {
   ChevronRight,
   User,
   Trash2,
+  WifiOff,
 } from "lucide-react-native";
 
 export default function DriversScreen() {
   const router = useRouter();
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const d = await dataService.getDrivers();
+    const v = await dataService.getVehicles();
+    setDrivers(d);
+    setVehicles(v);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const getVehiclePlate = (id: string) => {
-    return MOCK_VEHICLES.find((v) => v.id === id)?.plate || "Nenhum";
+    return vehicles.find((v) => v.id === id)?.plate || "Nenhum";
   };
 
   const handleDelete = (id: string) => {
@@ -33,7 +53,10 @@ export default function DriversScreen() {
         {
           text: "Eliminar",
           style: "destructive",
-          onPress: () => dataService.deleteDriver(id),
+          onPress: async () => {
+            await dataService.deleteDriver(id);
+            fetchData();
+          },
         },
       ],
     );
@@ -42,9 +65,12 @@ export default function DriversScreen() {
   return (
     <View className="flex-1 bg-slate-50">
       <FlatList
-        data={MOCK_DRIVERS}
+        data={drivers}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16 }}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={fetchData} />
+        }
         ListHeaderComponent={() => (
           <View className="mb-4">
             <Text className="text-slate-400 text-sm">
@@ -77,7 +103,7 @@ export default function DriversScreen() {
                   </Text>
                   <Calendar color="#94a3b8" size={12} className="mr-1" />
                   <Text className="text-slate-500 text-xs">
-                    Desde {item.startDate}
+                    Desde {new Date(item.startDate).toLocaleDateString()}
                   </Text>
                 </View>
                 <View className="flex-row items-center mt-2">
@@ -91,6 +117,11 @@ export default function DriversScreen() {
                       {formatCurrency(item.weeklyAmount)}
                     </Text>
                   </View>
+                  {item.synced === 0 && (
+                    <View className="ml-2 bg-slate-100 px-1.5 rounded">
+                      <WifiOff size={10} color="#94a3b8" />
+                    </View>
+                  )}
                 </View>
               </View>
             </TouchableOpacity>

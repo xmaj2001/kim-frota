@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,17 +8,29 @@ import {
   TextInput,
 } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
-import { Car, Bike, Trash2, Save, X, Info } from "lucide-react-native";
-import { MOCK_VEHICLES } from "@/constants/mockData";
+import { Car, Bike, Trash2, Save, WifiOff } from "lucide-react-native";
 import { dataService } from "@/services/dataService";
+import { Vehicle } from "@/types";
 
 export default function VehicleDetails() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const vehicle = MOCK_VEHICLES.find((v) => v.id === id) || MOCK_VEHICLES[0];
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [plate, setPlate] = useState("");
+  const [model, setModel] = useState("");
 
-  const [plate, setPlate] = React.useState(vehicle.plate);
-  const [model, setModel] = React.useState(vehicle.model || "");
+  useEffect(() => {
+    const fetch = async () => {
+      const all = await dataService.getVehicles();
+      const v = all.find((item) => item.id === id);
+      if (v) {
+        setVehicle(v);
+        setPlate(v.plate);
+        setModel(v.model || "");
+      }
+    };
+    fetch();
+  }, [id]);
 
   const handleDelete = () => {
     Alert.alert("Eliminar Veículo", "Deseja realmente remover este veículo?", [
@@ -26,19 +38,21 @@ export default function VehicleDetails() {
       {
         text: "Eliminar",
         style: "destructive",
-        onPress: () => {
-          dataService.deleteVehicle(vehicle.id);
+        onPress: async () => {
+          await dataService.deleteVehicle(id as string);
           router.back();
         },
       },
     ]);
   };
 
-  const handleSave = () => {
-    dataService.updateVehicle(vehicle.id, { plate, model });
+  const handleSave = async () => {
+    await dataService.updateVehicle(id as string, { plate, model });
     Alert.alert("Sucesso", "Informações atualizadas.");
     router.back();
   };
+
+  if (!vehicle) return null;
 
   return (
     <View className="flex-1 bg-white">
@@ -62,19 +76,20 @@ export default function VehicleDetails() {
               <Bike color="#6366f1" size={48} />
             )}
           </View>
-          <Text className="text-slate-900 font-black text-2xl">
-            {vehicle.plate}
-          </Text>
-          <Text className="text-slate-400 font-medium">{vehicle.model}</Text>
+          <Text className="text-slate-900 font-black text-2xl">{plate}</Text>
+          <Text className="text-slate-400 font-medium">{model}</Text>
 
           <View
-            className={`mt-4 px-3 py-1 rounded-full ${vehicle.status === "disponivel" ? "bg-emerald-100" : "bg-blue-100"}`}
+            className={`mt-4 px-3 py-1 rounded-full ${vehicle.status === "disponivel" ? "bg-emerald-100" : "bg-blue-100"} flex-row items-center`}
           >
             <Text
               className={`text-xs font-bold uppercase ${vehicle.status === "disponivel" ? "text-emerald-700" : "text-blue-700"}`}
             >
               {vehicle.status}
             </Text>
+            {vehicle.synced === 0 && (
+              <WifiOff size={10} color="#94a3b8" className="ml-2" />
+            )}
           </View>
         </View>
 
@@ -114,7 +129,6 @@ export default function VehicleDetails() {
             className="flex-[2] bg-blue-500 p-4 rounded-2xl items-center shadow-lg shadow-blue-500/30"
           >
             <View className="flex-row items-center">
-              <Save color="white" size={20} className="mr-2" />
               <Text className="text-white font-bold">Guardar Alterações</Text>
             </View>
           </TouchableOpacity>

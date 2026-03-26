@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,31 +8,36 @@ import {
   TextInput,
 } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
-import {
-  User,
-  Phone,
-  Calendar,
-  Trash2,
-  Save,
-  Car,
-  DollarSign,
-} from "lucide-react-native";
-import {
-  MOCK_DRIVERS,
-  MOCK_VEHICLES,
-  formatCurrency,
-} from "@/constants/mockData";
+import { User, Phone, Trash2, Car, WifiOff } from "lucide-react-native";
 import { dataService } from "@/services/dataService";
+import { Driver, Vehicle, formatCurrency } from "@/types";
 
 export default function DriverDetails() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const driver = MOCK_DRIVERS.find((d) => d.id === id) || MOCK_DRIVERS[0];
-  const vehicle = MOCK_VEHICLES.find((v) => v.id === driver.assignedVehicleId);
+  const [driver, setDriver] = useState<Driver | null>(null);
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
 
-  const [name, setName] = React.useState(driver.name);
-  const [phone, setPhone] = React.useState(driver.phone);
-  const [amount, setAmount] = React.useState(driver.weeklyAmount.toString());
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [amount, setAmount] = useState("");
+
+  useEffect(() => {
+    const fetch = async () => {
+      const dAll = await dataService.getDrivers();
+      const d = dAll.find((item) => item.id === id);
+      if (d) {
+        setDriver(d);
+        setName(d.name);
+        setPhone(d.phone);
+        setAmount(d.weeklyAmount.toString());
+
+        const vAll = await dataService.getVehicles();
+        setVehicle(vAll.find((v) => v.id === d.assignedVehicleId) || null);
+      }
+    };
+    fetch();
+  }, [id]);
 
   const handleDelete = () => {
     Alert.alert(
@@ -43,8 +48,8 @@ export default function DriverDetails() {
         {
           text: "Eliminar",
           style: "destructive",
-          onPress: () => {
-            dataService.deleteDriver(driver.id);
+          onPress: async () => {
+            await dataService.deleteDriver(id as string);
             router.back();
           },
         },
@@ -52,15 +57,17 @@ export default function DriverDetails() {
     );
   };
 
-  const handleSave = () => {
-    dataService.updateDriver(driver.id, {
+  const handleSave = async () => {
+    await dataService.updateDriver(id as string, {
       name,
       phone,
-      weeklyAmount: parseInt(amount),
+      weeklyAmount: parseFloat(amount),
     });
     Alert.alert("Sucesso", "Informações atualizadas.");
     router.back();
   };
+
+  if (!driver) return null;
 
   return (
     <View className="flex-1 bg-white">
@@ -80,17 +87,18 @@ export default function DriverDetails() {
           <View className="bg-white p-6 rounded-full shadow-sm mb-4 border-4 border-slate-100">
             <User color="#64748b" size={48} />
           </View>
-          <Text className="text-slate-900 font-black text-2xl">
-            {driver.name}
-          </Text>
+          <Text className="text-slate-900 font-black text-2xl">{name}</Text>
           <View className="flex-row items-center mt-2">
             <Phone color="#94a3b8" size={14} className="mr-1" />
-            <Text className="text-slate-500 font-medium">{driver.phone}</Text>
+            <Text className="text-slate-500 font-medium">{phone}</Text>
+            {driver.synced === 0 && (
+              <WifiOff size={10} color="#94a3b8" className="ml-2" />
+            )}
           </View>
 
           <View className="mt-4 bg-blue-500 px-4 py-2 rounded-2xl shadow-sm shadow-blue-500/30">
             <Text className="text-white font-black">
-              {formatCurrency(parseInt(amount))}/Semana
+              {formatCurrency(parseFloat(amount || "0"))}/Semana
             </Text>
           </View>
         </View>
@@ -114,7 +122,7 @@ export default function DriverDetails() {
           />
 
           <SectionTitle title="Vínculo de Veículo" />
-          <TouchableOpacity className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-row items-center justify-between mb-10">
+          <View className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-row items-center justify-between mb-10">
             <View className="flex-row items-center">
               <View className="bg-white p-2 rounded-xl mr-3 shadow-sm">
                 <Car color="#3b82f6" size={20} />
@@ -128,8 +136,7 @@ export default function DriverDetails() {
                 </Text>
               </View>
             </View>
-            <Text className="text-blue-500 font-bold text-xs">Alterar</Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
         <View className="mt-6 flex-row space-x-4 mb-10">
@@ -143,10 +150,7 @@ export default function DriverDetails() {
             onPress={handleSave}
             className="flex-[2] bg-blue-500 p-4 rounded-2xl items-center shadow-lg shadow-blue-500/30"
           >
-            <View className="flex-row items-center">
-              <Save color="white" size={20} className="mr-2" />
-              <Text className="text-white font-bold">Guardar Alterações</Text>
-            </View>
+            <Text className="text-white font-bold">Guardar Alterações</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

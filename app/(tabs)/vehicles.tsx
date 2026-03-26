@@ -1,19 +1,42 @@
-import React from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+  RefreshControl,
+} from "react-native";
 import { Link, useRouter } from "expo-router";
-import { MOCK_VEHICLES } from "@/constants/mockData";
 import { dataService } from "@/services/dataService";
+import { Vehicle } from "@/types";
 import {
   Car,
   Bike,
   Plus,
   ChevronRight,
   Trash2,
-  Info,
+  Wifi,
+  WifiOff,
 } from "lucide-react-native";
 
 export default function VehiclesScreen() {
   const router = useRouter();
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setIsOnline(await dataService.isOnline());
+    const data = await dataService.getVehicles();
+    setVehicles(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleDelete = (id: string) => {
     Alert.alert(
@@ -24,7 +47,10 @@ export default function VehiclesScreen() {
         {
           text: "Eliminar",
           style: "destructive",
-          onPress: () => dataService.deleteVehicle(id),
+          onPress: async () => {
+            await dataService.deleteVehicle(id);
+            fetchData();
+          },
         },
       ],
     );
@@ -33,14 +59,20 @@ export default function VehiclesScreen() {
   return (
     <View className="flex-1 bg-slate-50">
       <FlatList
-        data={MOCK_VEHICLES}
+        data={vehicles}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16 }}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={fetchData} />
+        }
         ListHeaderComponent={() => (
-          <View className="mb-4">
+          <View className="mb-4 flex-row justify-between items-center">
             <Text className="text-slate-400 text-sm">
               Gerencie sua frota de veículos
             </Text>
+            {loading && (
+              <Text className="text-blue-500 text-xs">Sincronizando...</Text>
+            )}
           </View>
         )}
         renderItem={({ item }) => (
@@ -79,6 +111,11 @@ export default function VehiclesScreen() {
                   >
                     {item.status}
                   </Text>
+                  {item.synced === 0 && (
+                    <View className="ml-2 bg-slate-100 px-1.5 rounded">
+                      <WifiOff size={10} color="#94a3b8" />
+                    </View>
+                  )}
                 </View>
               </View>
             </TouchableOpacity>

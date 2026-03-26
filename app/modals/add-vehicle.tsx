@@ -1,17 +1,35 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { Car, Bike, X } from "lucide-react-native";
+import { dataService } from "@/services/dataService";
 
 export default function RegisterVehicle() {
   const router = useRouter();
-  const [type, setType] = React.useState<"carro" | "mota">("carro");
+  const [type, setType] = useState<"carro" | "mota">("carro");
+  const [plate, setPlate] = useState("");
+  const [model, setModel] = useState("");
+
+  const handleRegister = async () => {
+    if (!plate) return Alert.alert("Erro", "A matrícula é obrigatória.");
+
+    await dataService.addVehicle({
+      type,
+      plate,
+      model,
+      status: "disponivel",
+    });
+
+    Alert.alert("Sucesso", "Veículo registado com sucesso!");
+    router.back();
+  };
 
   return (
     <View className="flex-1 bg-white">
@@ -31,7 +49,7 @@ export default function RegisterVehicle() {
           Escolha o tipo
         </Text>
 
-        <View className="flex-row space-x-4 mb-8">
+        <View className="flex-row gap-4 mb-8">
           <TouchableOpacity
             onPress={() => setType("carro")}
             className={`flex-1 p-4 rounded-2xl border-2 items-center ${type === "carro" ? "border-blue-500 bg-blue-50" : "border-slate-100"}`}
@@ -60,15 +78,20 @@ export default function RegisterVehicle() {
         <Input
           label="Matrícula / Identificador"
           placeholder="Ex: LD-00-00-XX"
+          value={plate}
+          onChangeText={setPlate}
         />
-        <Input label="Modelo" placeholder="Ex: Toyota Vitz" />
         <Input
-          label="Valor Semanal (Kz)"
-          placeholder="Ex: 50.000"
-          keyboardType="numeric"
+          label="Modelo"
+          placeholder="Ex: Toyota Vitz"
+          value={model}
+          onChangeText={setModel}
         />
 
-        <TouchableOpacity className="bg-blue-500 p-4 rounded-2xl mt-8 shadow-lg shadow-blue-500/30">
+        <TouchableOpacity
+          onPress={handleRegister}
+          className="bg-blue-500 p-4 rounded-2xl mt-8 shadow-lg shadow-blue-500/30"
+        >
           <Text className="text-white text-center font-bold text-lg">
             Registar Veículo
           </Text>
